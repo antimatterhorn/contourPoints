@@ -9,7 +9,7 @@ def density_function(r, theta):
     return r * dr * dtheta
 
 # Function to place points along contour lines separated inversely by density values
-def place_points_along_contours(x, y, density_map, num_points_per_contour=10):
+def place_points_along_contours(x, y, density_map, num_points_scale=10):
     # Specify constant density levels you want contour lines for
     constant_density_levels = np.linspace(0, np.max(density_map), 10)
 
@@ -33,8 +33,11 @@ def place_points_along_contours(x, y, density_map, num_points_per_contour=10):
         cumulative_distances = np.cumsum(distances)
         total_distance = cumulative_distances[-1]
 
-        for i in range(num_points_per_contour):
-            target_distance = i * total_distance / (num_points_per_contour - 1)
+        # Calculate the number of points based on the local density
+        num_points = int(len(curve) * num_points_scale / density_values.mean())
+
+        for i in range(num_points):
+            target_distance = i * total_distance / (num_points - 1)
             
             # Ensure target_distance is within the valid range
             target_distance = max(0, min(target_distance, total_distance))
@@ -62,7 +65,7 @@ y = r * np.sin(theta)
 density_map = density_function(r, theta)
 
 # Place points along contours
-points = place_points_along_contours(x, y, density_map, num_points_per_contour=50)
+points = place_points_along_contours(x, y, density_map, num_points_scale=10)
 
 # Plot the placed points
 plt.scatter(points[:, 0], points[:, 1], color='red', marker='o', label='Points along Contours')
