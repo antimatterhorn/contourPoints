@@ -4,14 +4,14 @@ from scipy.interpolate import griddata
 
 # Function to calculate the density at a given point (r, theta)
 def density_function(r, theta):
-    dr = 1 - r**2
+    dr = 1 - r**3
     dtheta = np.exp(0.2 * theta) - 1
     return r * dr * dtheta
 
-# Function to place points along contour lines separated inversely by density values
+# Function to place points along contour lines separated by density values
 def place_points_along_contours(x, y, density_map, num_points_scale=10):
     # Specify constant density levels you want contour lines for
-    constant_density_levels = np.linspace(0, np.max(density_map), 10)
+    constant_density_levels = np.linspace(0, np.max(density_map), 40)
 
     # Plot the contour lines
     contour_lines = plt.contour(x, y, density_map, levels=constant_density_levels, colors='black', linewidths=1).collections
@@ -25,31 +25,25 @@ def place_points_along_contours(x, y, density_map, num_points_scale=10):
             vertices = path.vertices
             curves.append(vertices)
 
-    # Place points along contour lines separated inversely by density values
+    # Place points along contour lines separated by density values
     points = []
     for curve in curves:
         density_values = griddata((x.flatten(), y.flatten()), density_map.flatten(), (curve[:, 0], curve[:, 1]), method='linear')
-        distances = 1 / density_values
-        cumulative_distances = np.cumsum(distances)
-        total_distance = cumulative_distances[-1]
+        normalized_density = (density_values - density_values.min()) / (density_values.max() - density_values.min())
 
-        # Calculate the number of points based on the local density
-        num_points = int(len(curve) * num_points_scale / density_values.mean())
+        # Number of points based on density and curve length
+        num_points = int(num_points_scale * len(curve) * normalized_density.mean())
 
-        for i in range(num_points):
-            target_distance = i * total_distance / (num_points - 1)
-            
-            # Ensure target_distance is within the valid range
-            target_distance = max(0, min(target_distance, total_distance))
-            
-            normalized_index = np.interp(target_distance, cumulative_distances, np.arange(len(cumulative_distances)))
-            
-            # Normalize index based on the length of the curve
-            normalized_index = int(normalized_index * (len(curve) - 1) / (len(cumulative_distances) - 1))
-            
-            points.append(curve[normalized_index])
+        # Interpolate points along the curve
+        t = np.linspace(0, 1, len(curve))
+        t_interp = np.linspace(0, 1, num_points)
+        x_interp = np.interp(t_interp, t, curve[:, 0])
+        y_interp = np.interp(t_interp, t, curve[:, 1])
 
-    return np.array(points)
+        # Append to the list of points
+        points.append(np.column_stack((x_interp, y_interp)))
+
+    return np.concatenate(points)
 
 # Create a lattice of points
 num_points = 100
@@ -65,13 +59,13 @@ y = r * np.sin(theta)
 density_map = density_function(r, theta)
 
 # Place points along contours
-points = place_points_along_contours(x, y, density_map, num_points_scale=10)
+points = place_points_along_contours(x, y, density_map, num_points_scale=0.5)
 
 # Plot the placed points
 plt.scatter(points[:, 0], points[:, 1], color='red', marker='o', label='Points along Contours')
 
 plt.xlabel('X')
 plt.ylabel('Y')
-plt.title('Points along Contour Lines Separated Inversely by Density')
+plt.title('Points along Contour Lines Proportional to Density and Curve Length')
 plt.legend()
 plt.show()
